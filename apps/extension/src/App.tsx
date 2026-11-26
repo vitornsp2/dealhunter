@@ -1,4 +1,17 @@
-import { ExternalLink, Plus, RefreshCw, Search, Trash2 } from "lucide-react";
+import {
+  BarChart3,
+  Box,
+  ExternalLink,
+  LayoutDashboard,
+  PackageSearch,
+  Plus,
+  RefreshCw,
+  Search,
+  Settings2,
+  ShoppingBag,
+  Trash2,
+  TrendingDown
+} from "lucide-react";
 import { useEffect, useState, type FormEvent } from "react";
 import {
   defaultAppState,
@@ -84,7 +97,13 @@ export default function App() {
     }
   }
 
-  if (!state) return <div className="p-5 text-muted">Carregando…</div>;
+  if (!state)
+    return (
+      <div className="loading-state" role="status">
+        <RefreshCw className="animate-spin text-brand" size={18} />
+        Carregando seus produtos…
+      </div>
+    );
   return popup ? (
     <Popup state={state} busy={busy} error={error} refresh={refresh} />
   ) : (
@@ -105,20 +124,35 @@ function Popup({
 }) {
   const tracked = state.products.filter((item) => item.tracking && item.status === "active");
   return (
-    <main className="w-[380px] p-4">
-      <header className="mb-4 flex items-center justify-between">
-        <div>
-          <h1 className="text-xl font-bold">DealHunter Brasil</h1>
-          <p className="text-xs text-muted">Preços em BRL · atualização manual</p>
+    <main className="popup-shell w-[380px] p-4">
+      <header className="mb-4 flex items-center justify-between gap-3">
+        <div className="flex min-w-0 items-center gap-2.5">
+          <span className="brand-mark">
+            <TrendingDown size={17} />
+          </span>
+          <div className="min-w-0">
+            <h1 className="truncate text-base font-bold tracking-tight">DealHunter</h1>
+            <p className="text-[11px] text-muted">Brasil · preços em BRL</p>
+          </div>
         </div>
         <button
-          className="button-secondary"
+          className="button-secondary !min-h-8 !px-2.5 !text-xs"
           onClick={() => chrome.tabs.create({ url: chrome.runtime.getURL("dashboard.html") })}
         >
           Abrir painel
         </button>
       </header>
-      {error && <p className="mb-3 rounded-xl bg-red-500/10 p-3 text-sm text-red-500">{error}</p>}
+      <div className="mb-3 flex items-center justify-between border-y border-black/5 py-2 dark:border-white/5">
+        <span className="text-xs font-medium">{tracked.length} produtos ativos</span>
+        <span className="mode-badge">
+          {state.preferences.providerMode === "mock" ? "Simulado" : "Ao vivo"}
+        </span>
+      </div>
+      {error && (
+        <p role="alert" className="error-state mb-3">
+          {error}
+        </p>
+      )}
       <div className="space-y-2">
         {tracked.map((product) => {
           const offers = state.cachedSearches[product.id]?.response.offers ?? [];
@@ -126,11 +160,11 @@ function Popup({
             ? Math.min(...offers.map((offer) => offer.advertisedPriceBrl))
             : null;
           return (
-            <article className="card !p-3" key={product.id}>
+            <article className="watch-row" key={product.id}>
               <div className="flex items-center justify-between gap-2">
                 <div>
-                  <strong className="text-sm">{product.name}</strong>
-                  <p className="text-xs text-muted">
+                  <strong className="block truncate text-sm">{product.name}</strong>
+                  <p className="mt-0.5 text-xs text-muted">
                     {lowest === null
                       ? "Sem preço consultado"
                       : `Menor anunciado: ${brl.format(lowest)}`}
@@ -150,7 +184,7 @@ function Popup({
         })}
       </div>
       <button
-        className="button mt-3 w-full"
+        className="button mt-3 w-full !min-h-9"
         onClick={() =>
           chrome.tabs.create({ url: chrome.runtime.getURL("dashboard.html#products") })
         }
@@ -181,41 +215,60 @@ function Dashboard({
   const [page, setPage] = useState<Page>(location.hash === "#products" ? "products" : "overview");
   const offers = offersFrom(state);
   return (
-    <div className="mx-auto max-w-6xl">
-      <header className="border-b border-black/10 p-5 dark:border-white/10">
-        <h1 className="text-xl font-bold">DealHunter Brasil</h1>
-        <p className="text-xs text-muted">
-          Pesquisa comparativa manual ·{" "}
-          {state.preferences.providerMode === "mock" ? "Simulado" : "Ao vivo"}
-        </p>
+    <div className="dashboard-shell mx-auto max-w-[1280px]">
+      <header className="topbar">
+        <div className="flex items-center gap-3">
+          <span className="brand-mark">
+            <TrendingDown size={18} />
+          </span>
+          <div>
+            <h1 className="text-base font-bold tracking-tight">DealHunter</h1>
+            <p className="text-[11px] text-muted">Painel de pesquisa comparativa</p>
+          </div>
+        </div>
+        <span className="mode-badge">
+          <span className="status-dot" />
+          {state.preferences.providerMode === "mock" ? "Modo Simulado" : "Modo ao vivo"}
+        </span>
       </header>
-      <div className="grid md:grid-cols-[190px_1fr]">
-        <nav className="flex gap-1 overflow-auto p-3 md:min-h-[680px] md:flex-col md:border-r">
-          {(["overview", "products", "search", "settings"] as Page[]).map((id) => (
-            <button
-              className={`rounded-xl px-3 py-2 text-left text-sm ${page === id ? "bg-brand text-white dark:text-black" : "text-muted"}`}
-              key={id}
-              onClick={() => setPage(id)}
-            >
-              {
+      <div className="grid md:grid-cols-[208px_1fr]">
+        <nav aria-label="Navegação principal" className="sidebar">
+          {(["overview", "products", "search", "settings"] as Page[]).map((id) => {
+            const Icon = {
+              overview: LayoutDashboard,
+              products: ShoppingBag,
+              search: PackageSearch,
+              settings: Settings2
+            }[id];
+            return (
+              <button
+                className={`nav-item ${page === id ? "nav-item-active" : ""}`}
+                key={id}
+                onClick={() => setPage(id)}
+              >
+                <Icon size={16} />
                 {
-                  overview: "Visão geral",
-                  products: "Produtos",
-                  search: "Ofertas",
-                  settings: "Configurações"
-                }[id]
-              }
-            </button>
-          ))}
+                  {
+                    overview: "Visão geral",
+                    products: "Produtos",
+                    search: "Ofertas",
+                    settings: "Configurações"
+                  }[id]
+                }
+              </button>
+            );
+          })}
         </nav>
-        <main className="p-4 md:p-6">
+        <main className="min-w-0 p-4 md:p-7">
           {error && (
-            <p role="alert" className="mb-4 rounded-xl bg-red-500/10 p-3 text-red-500">
+            <p role="alert" className="error-state mb-4">
               {error}
             </p>
           )}
           {busy && (
-            <div aria-label="Carregando" className="mb-4 h-20 animate-pulse rounded-2xl bg-panel" />
+            <div role="status" className="loading-state mb-4">
+              <RefreshCw className="animate-spin text-brand" size={17} /> Atualizando ofertas…
+            </div>
           )}
           {page === "overview" && <Overview state={state} offers={offers} />}
           {page === "products" && (
@@ -232,28 +285,43 @@ function Dashboard({
 function Overview({ state, offers }: { state: AppState; offers: Offer[] }) {
   const tracked = state.products.filter((product) => product.tracking).length;
   const withOffers = new Set(offers.map((offer) => offer.productId)).size;
+  const metrics = [
+    { label: "Produtos acompanhados", value: tracked, icon: ShoppingBag },
+    { label: "Ofertas em cache", value: offers.length, icon: PackageSearch },
+    { label: "Com resultados", value: withOffers, icon: BarChart3 },
+    {
+      label: "Última consulta",
+      value: state.lastSuccessfulCheckAt
+        ? new Date(state.lastSuccessfulCheckAt).toLocaleString("pt-BR", {
+            day: "2-digit",
+            month: "short",
+            hour: "2-digit",
+            minute: "2-digit"
+          })
+        : "Nunca",
+      icon: RefreshCw
+    }
+  ];
   return (
     <section>
-      <h2 className="text-2xl font-bold">Visão geral</h2>
-      <div className="mt-5 grid gap-3 sm:grid-cols-4">
-        {[
-          ["Produtos acompanhados", tracked],
-          ["Total de ofertas", offers.length],
-          ["Produtos com ofertas", withOffers],
-          [
-            "Última consulta",
-            state.lastSuccessfulCheckAt
-              ? new Date(state.lastSuccessfulCheckAt).toLocaleString("pt-BR")
-              : "Nunca"
-          ]
-        ].map(([label, value]) => (
-          <article className="card" key={label}>
-            <p className="text-xs text-muted">{label}</p>
-            <strong className="mt-2 block text-xl">{value}</strong>
+      <div className="section-heading">
+        <div>
+          <h2>Visão geral</h2>
+          <p>Resumo da sua pesquisa manual de preços.</p>
+        </div>
+      </div>
+      <div className="mt-5 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+        {metrics.map(({ label, value, icon: Icon }) => (
+          <article className="metric-card" key={label}>
+            <div className="flex items-center justify-between">
+              <p>{label}</p>
+              <Icon size={16} className="text-brand" />
+            </div>
+            <strong>{value}</strong>
           </article>
         ))}
       </div>
-      <h3 className="mb-2 mt-6 font-semibold">Ofertas recentes</h3>
+      <h3 className="mb-3 mt-7 text-sm font-semibold">Ofertas recentes</h3>
       <OfferCards offers={offers.slice(0, 4)} />
     </section>
   );
@@ -307,7 +375,12 @@ function Products({
   }
   return (
     <section>
-      <h2 className="text-2xl font-bold">Produtos</h2>
+      <div className="section-heading">
+        <div>
+          <h2>Produtos</h2>
+          <p>Organize sua lista e execute buscas sob demanda.</p>
+        </div>
+      </div>
       <form className="card mt-4 grid gap-3 sm:grid-cols-2" onSubmit={submit}>
         {(["name", "brand", "model"] as const).map((field) => (
           <label key={`${field}-${editing?.id}`}>
@@ -375,18 +448,23 @@ function Products({
         </label>
         <button className="button">{editing ? "Salvar edição" : "Adicionar produto"}</button>
       </form>
-      <div className="mt-4 space-y-3">
+      <div className="mt-5 overflow-hidden rounded-xl border border-black/10 bg-panel dark:border-white/10">
         {state.products.map((product) => (
           <article
-            className="card flex flex-wrap items-center justify-between gap-3"
+            className="product-row flex flex-wrap items-center justify-between gap-3"
             key={product.id}
           >
-            <div>
-              <strong>{product.name}</strong>
-              <p className="text-xs text-muted">
-                {product.brand} · {product.model} · alvo {brl.format(product.targetPriceBrl)} ·{" "}
-                {product.status}
-              </p>
+            <div className="flex min-w-0 items-center gap-3">
+              <span className="product-icon">
+                <Box size={17} />
+              </span>
+              <div className="min-w-0">
+                <strong className="block truncate text-sm">{product.name}</strong>
+                <p className="text-xs text-muted">
+                  {product.brand} · {product.model} · alvo {brl.format(product.targetPriceBrl)} ·{" "}
+                  {{ active: "ativo", paused: "pausado", archived: "arquivado" }[product.status]}
+                </p>
+              </div>
             </div>
             <div className="flex gap-2">
               <button className="button-secondary" onClick={() => setEditing(product)}>
@@ -414,6 +492,13 @@ function Products({
             </div>
           </article>
         ))}
+        {state.products.length === 0 && (
+          <div className="empty-state">
+            <ShoppingBag size={22} />
+            <strong>Nenhum produto ainda</strong>
+            <p>Use o formulário acima para iniciar sua lista.</p>
+          </div>
+        )}
       </div>
     </section>
   );
@@ -432,11 +517,15 @@ function Offers({ offers }: { offers: Offer[] }) {
     );
   return (
     <section>
-      <h2 className="text-2xl font-bold">Ofertas candidatas</h2>
-      <p className="mt-1 text-sm text-muted">
-        Resultados brutos, sem validação de compatibilidade. Preço total só é confiável quando o
-        frete está informado; confirme tudo no varejista.
-      </p>
+      <div className="section-heading">
+        <div>
+          <h2>Ofertas candidatas</h2>
+          <p className="mt-1 text-sm text-muted">
+            Resultados brutos, sem validação de compatibilidade. Preço total só é confiável quando o
+            frete está informado; confirme tudo no varejista.
+          </p>
+        </div>
+      </div>
       <div className="mt-4 flex max-w-xl gap-3">
         <label className="block flex-1">
           <span className="label">Filtrar varejista</span>
@@ -468,13 +557,17 @@ function Offers({ offers }: { offers: Offer[] }) {
 
 function OfferCards({ offers }: { offers: Offer[] }) {
   return (
-    <div className="grid gap-3 sm:grid-cols-2">
+    <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
       {offers.length === 0 && (
-        <p className="card text-sm text-muted">Nenhuma oferta em cache. Faça uma busca manual.</p>
+        <div className="empty-state sm:col-span-2 xl:col-span-3">
+          <PackageSearch size={24} />
+          <strong>Nenhuma oferta em cache</strong>
+          <p>Faça uma busca manual em um produto para ver resultados aqui.</p>
+        </div>
       )}
       {offers.map((offer) => (
         <article className="card" key={offer.id}>
-          <p className="text-xs text-brand">
+          <p className="mb-1 text-[11px] font-semibold uppercase tracking-wide text-brand">
             {offer.retailer} · {offer.condition}
           </p>
           <strong>{offer.title}</strong>
@@ -506,7 +599,12 @@ function Settings({ state, setState }: { state: AppState; setState: (state: AppS
   }
   return (
     <section>
-      <h2 className="text-2xl font-bold">Configurações</h2>
+      <div className="section-heading">
+        <div>
+          <h2>Configurações</h2>
+          <p>Ajuste aparência, provedor e conexão local.</p>
+        </div>
+      </div>
       <div className="card mt-4 grid max-w-xl gap-4">
         <label>
           <span className="label">Tema</span>
